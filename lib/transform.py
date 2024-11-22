@@ -13,7 +13,7 @@ def make_map_file(patient_divers_SNP_file: str, map_file: str):
 
     # *Labels: Chr SNP SNP_Position Base-Pair Coordinate
     map_df.columns = ['SNP', 'Chr', 'Base-Pair Coordinate']
-    map_df['SNP_Position']= ""
+    map_df.loc[:, 'SNP_Position'] = ""
     map_df = map_df[['Chr', 'SNP', 'SNP_Position', 'Base-Pair Coordinate']]
 
     print('Exporting file: ' + map_file)
@@ -76,9 +76,9 @@ def make_ped_file(patient_divers_SNP_file, ID_filter_file_raw, ped_file):
     # *Labels: FID ID F M S P Genotype
     print("Adding columns...")
     # df_transposed['S'] = df_transposed['ID'].apply(lambda x: extract_first_numeric(x)) # Apply the function to create the new column 'S'
-    df_transposed["FID"] = 0
-    df_transposed["F"] = 0
-    df_transposed["M"] = 0
+    df_transposed.loc[:, 'FID'] = 0
+    df_transposed.loc[:, 'F'] = 0
+    df_transposed.loc[:, 'M'] = 0
         
     print("Re-arranging...")
     df_transposed = df_transposed[['FID', 'ID', 'F', 'M', 'Genotype']]
