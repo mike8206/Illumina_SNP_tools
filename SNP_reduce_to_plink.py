@@ -136,8 +136,12 @@ def main():
             plink_string1 = ".\plink --file .\\" + phenotype[0] + "\\" + map_ped_file_prefix + "_outrange --make-bed --out .\\" + phenotype[0] + "\\" + map_ped_file_prefix + "_outrange"
             os.system(plink_string1)
         # freqx
-        plink_freq = ".\plink --bfile .\\" + phenotype[0] + "\\" + map_ped_file_prefix + " --freqx --out .\\" + phenotype[0] + "\\" + map_ped_file_prefix
-        os.system(plink_freq)
+        if not args.only_check_indel:
+            plink_freq = ".\plink --bfile .\\" + phenotype[0] + "\\" + map_ped_file_prefix + " --freqx --out .\\" + phenotype[0] + "\\" + map_ped_file_prefix
+            os.system(plink_freq)
+        if args.check_indel:
+            plink_freq = ".\plink --file .\\" + phenotype[0] + "\\" + map_ped_file_prefix + "_outrange --freqx --out .\\" + phenotype[0] + "\\" + map_ped_file_prefix + "_outrange"
+            os.system(plink_freq)  
             
     # QC
     if args.type == "category":
