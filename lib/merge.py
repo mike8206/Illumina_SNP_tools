@@ -36,7 +36,7 @@ def filted_SNP_merge(filted_folder: str, input_SNP_file: str, outputfilename: st
     file_list.sort()
     print("There are " + str(len(file_list)) + " filted files in the folder.")
 
-    merged_df = pd.read_csv(input_SNP_file)
+    merged_df = pd.read_csv(input_SNP_file, usecols=['SNP_id'])
     filter_list = merged_df['SNP_id'].to_list()
     print('There are ' + str(len(filter_list)) + " SNPs in the list.")
 

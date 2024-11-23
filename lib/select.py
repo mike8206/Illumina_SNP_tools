@@ -32,6 +32,15 @@ def select_reduce_by_id(reduce_folder: str, filter_file: str, temp_folder: str):
     gc.collect()
     print("Done!")
 
+def selected_chr_SNP(SNP_list_file: str, selected_chr: str, selected_chr_file: str):
+    SNP_df = pd.read_csv(SNP_list_file)
+    selected_chr_df = SNP_df[SNP_df['chr'] == selected_chr]
+    del SNP_df
+    selected_chr_df = selected_chr_df.drop(columns=['chr','BP'])
+    selected_chr_df.to_csv(selected_chr_file, index=False)
+    del selected_chr_df
+    gc.collect()
+
 def intersection_of_SNP(filted_folder: str, outputfile: str):
     file_list = [str(f) for f in Path(filted_folder).iterdir() if f.match("*.csv")]
     file_list.sort()
@@ -44,11 +53,11 @@ def intersection_of_SNP(filted_folder: str, outputfile: str):
         set_temp = set(SNPs_temp)
         print('Make intersection of file: '+file_list[i])
         if i < 1:
-            SNPs_list = set_temp
+            common_SNPs_list = set_temp
         else:
-            SNPs_list = SNPs_list.intersection(set_temp)
+            common_SNPs_list = common_SNPs_list.intersection(set_temp)
 
-    common_SNPs_df = pd.DataFrame(SNPs_list)
+    common_SNPs_df = pd.DataFrame(common_SNPs_list)
     common_SNPs_df = common_SNPs_df.rename(columns={0: 'SNP_id'})
 
     print('Exporting common SNPs list file: '+ outputfile)
