@@ -1,9 +1,10 @@
+from pathlib import Path
 import pandas as pd
 import gc
 
-def make_map_file(patient_divers_SNP_file: str, map_file: str):
+def make_map_file(patient_snp_map: Path, map_file: Path):
     print("Loading file...")
-    map_df = pd.read_csv(patient_divers_SNP_file, usecols=['SNP_id', 'chr', 'BP'], dtype={'SNP_id': str, 'chr': str, 'BP': str})
+    map_df = pd.read_csv(patient_snp_map, usecols=['SNP_id', 'chr', 'BP'], dtype={'SNP_id': str, 'chr': str, 'BP': str})
 
     # remove chr or BP == '0'
     print("Removing chr or BP == 0")
@@ -16,11 +17,10 @@ def make_map_file(patient_divers_SNP_file: str, map_file: str):
     map_df.loc[:, 'SNP_Position'] = ""
     map_df = map_df[['Chr', 'SNP', 'SNP_Position', 'Base-Pair Coordinate']]
 
-    print('Exporting file: ' + map_file)
+    print('Exporting file: ' + str(map_file))
     map_df.to_csv(map_file, sep="\t", index=False, header=False)
     del map_df
     gc.collect()
-    print('Finished exporting!')
 
 # the mapping function
 def transform_row(row):
@@ -37,11 +37,11 @@ def transform_row(row):
     # Map each element in the row using the dictionary, make sure to convert to string if necessary
     return ' '.join(row.apply(lambda x: mapping_dict.get(str(int(x)))))
 
-def make_ped_file(patient_divers_SNP_file, ID_filter_file_raw, ped_file):
+def make_ped_file(patient_snp_map: Path, dataseta_ID_file: Path, chunksize: int, ped_file: Path):
     print("Loading file...")
     post_T_chunks = []
     chunk_num = 1
-    for chunk in pd.read_csv(patient_divers_SNP_file, chunksize = 50000, dtype={'SNP_id': str, 'chr': str, 'BP': str}):
+    for chunk in pd.read_csv(patient_snp_map, chunksize = chunksize, dtype={'SNP_id': str, 'chr': str, 'BP': str}):
         print("Working on chunk: " + str(chunk_num) + ". Removing chr or BP == 0 ...")
         chunk = chunk.query('chr != "0" & BP != "0"')
         print("Transposing columns and rows...")
@@ -73,25 +73,34 @@ def make_ped_file(patient_divers_SNP_file, ID_filter_file_raw, ped_file):
     df_transposed = df_transposed[['ID', 'Combined']] # Remain necessary columns
     df_transposed.columns = ['ID', 'Genotype'] # Rename for clarity
 
+    print("Adding S column...")
+    pt_df_raw = pd.read_csv(dataseta_ID_file) # *Labels: ID S
+    df_transposed = df_transposed.merge(pt_df_raw, how='left', on='ID')
+    del pt_df_raw
+    gc.collect()
+
     # *Labels: FID ID F M S P Genotype
-    print("Adding columns...")
-    # df_transposed['S'] = df_transposed['ID'].apply(lambda x: extract_first_numeric(x)) # Apply the function to create the new column 'S'
+    print("Adding FID, F, M, P columns...")
     df_transposed.loc[:, 'FID'] = 0
     df_transposed.loc[:, 'F'] = 0
     df_transposed.loc[:, 'M'] = 0
+    df_transposed.loc[:, 'P'] = -9 # default = missing (-9)
         
     print("Re-arranging...")
-    df_transposed = df_transposed[['FID', 'ID', 'F', 'M', 'Genotype']]
+    df_transposed = df_transposed[['FID', 'ID', 'F', 'M', 'S', 'P', 'Genotype']]
 
-    pt_df_raw = pd.read_csv(ID_filter_file_raw) # ID, S, P
-    final_df = df_transposed.merge(pt_df_raw, how='left', on='ID')
-    del pt_df_raw, df_transposed
+    print('Exporting file: ' + str(ped_file))
+    df_transposed.to_csv(ped_file, sep="\t", index=False, header=False)
+    del df_transposed
     gc.collect()
 
-    print('Exporting file: ' + ped_file)
-    final_df = final_df[['FID', 'ID', 'F', 'M', 'S', 'P', 'Genotype']]
-    final_df.columns = ['FID', 'ID', 'F', 'M', 'S', 'P', 'Genotype'] 
-    final_df.to_csv(ped_file, sep="\t", index=False, header=False)
-    del final_df
+def extract_raw_to_csv(raw_file: Path, id_name: str, pheno_name:str, output_file: Path):
+    raw_df = pd.read_csv(raw_file, sep=" ")
+    raw_df.drop(columns=['FID', 'SEX', 'PAT', 'MAT'], inplace=True)
+    raw_df.rename(columns={'IID': id_name, 'PHENOTYPE': pheno_name}, inplace=True)
+    raw_df = raw_df[raw_df[pheno_name] != -9]
+    # Convert columns from the 3rd column to the end (zero-indexed, so 2 means the 3rd column)
+    raw_df.iloc[:, 2:] = raw_df.iloc[:, 2:].astype("Int64")
+    raw_df.to_csv(output_file, index=False)
+    del raw_df
     gc.collect()
-    print('Finished exporting!')
