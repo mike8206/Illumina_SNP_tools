@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 library("optparse")
 library("data.table")
-library("tidyverse")
 library("qqman")
 
 option_list = list(
@@ -53,12 +52,11 @@ example_basic_logistic_GWAS_results <- read.table(file=filename, header=TRUE, na
 
 ### Manhattan plot (qqman version)
 tiff(filename = manhattan_filename, width = 1080, height = 608, units = "px", pointsize = 18)
-manhattan(example_basic_logistic_GWAS_results %>% na.omit(), 
+manhattan(example_basic_logistic_GWAS_results, 
           main = manhattan_title, cex.axis = 0.7,
           chr = "CHR", bp = "BP", p = "P", chrlabs = c(1:22, "MT"),
           col = c("blue4", "orange3"), annotatePval = 0.00001)
 dev.off()
-
 
 ## Q-Q plot (qqman version)
 tiff(filename = QQ_filename, width = 1080, height = 608, units = "px", pointsize = 24)
@@ -70,5 +68,3 @@ dev.off()
 top_results_linear <- example_basic_logistic_GWAS_results[order(example_basic_logistic_GWAS_results$P),]
 file_df <- top_results_linear[top_results_linear$P <= 0.00001, ] 
 fwrite(file_df, top_filename, sep = ",")
-
-# .\plink --file .\Lean_HL\SNP_5000_HL --r2 --ld-snp rs12592963 --ld-window-kb 1000 --ld-window 99999 --ld-window-r2 0
