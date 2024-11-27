@@ -39,13 +39,18 @@ def main():
     patient_data_id = args.id_name
     phenotype = [args.phenotype, args.type] # category, continuous
     
+    if args.type == "category":
+        assoc_analysis = "logistic"
+    else:
+        assoc_analysis = "linear"
+    
     if args.chr:
         selected_chr = args.chr.split(",")
     else:
         selected_chr = ["1","2","3","4","5","6","7","8","9","10",
                         "11","12","13","14","15","16","17","18","19","20",
                         "21","22","MT","X","XY","Y"]
-        
+    
     # Part 0
     # Preparing folder and sorted SNP files
     dataset_folder = PurePath(patient_data_file_prefix)
@@ -156,79 +161,92 @@ def main():
             chr_ped_file = PurePath(snp_folder, "ped", patient_data_file_prefix + r"_chr" + str(chr) + r".ped")
             chr_bed = PurePath(snp_folder, "bed", phenotype[0], patient_data_file_prefix + r"_" + phenotype[0] + r"_chr" + str(chr))
             
-            if not os.path.exists(PurePath(str(chr_bed) + r".bed")):
-                print("Part 6: Generate bed files, combine phenotyp file, now on chr: "+ str(chr))
-                Path(Path(chr_bed).parent.absolute()).mkdir(parents=True, exist_ok=True)
-                plink_makebed = r".\\plink --silent --map .\\" + str(chr_map_file) + r" --ped .\\" + str(chr_ped_file) + r" --pheno .\\" + str(ID_phenotype_file) + r" --make-bed --out .\\" + str(chr_bed)
-                os.system(plink_makebed)
+            if os.path.exists(chr_ped_file):
+                if not os.path.exists(PurePath(str(chr_bed) + r".bed")):
+                    print("Part 6: Generate bed files, combine phenotyp file, now on chr: "+ str(chr))
+                    Path(Path(chr_bed).parent.absolute()).mkdir(parents=True, exist_ok=True)
+                    plink_makebed = r".\\plink --silent --map .\\" + str(chr_map_file) + r" --ped .\\" + str(chr_ped_file) + r" --pheno .\\" + str(ID_phenotype_file) + r" --make-bed --out .\\" + str(chr_bed)
+                    os.system(plink_makebed)
 
-                print("Part 6: Write bed path to mergefiles.txt")
-                with open(merge_files_txt, 'a+') as f:
-                    f.write(f'{chr_bed}\n')
+                    print("Part 6: Write bed path to mergefiles.txt")
+                    with open(merge_files_txt, 'a+') as f:
+                        f.write(f'{chr_bed}\n')
+            else:
+                raise FileNotFoundError(chr_ped_file)
 
     # Part 7
     # Merge all plink binary files in mergefiles.txt and generate merged plink file
     merged_final_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_merged")
+    merged_final_file = PurePath(str(merged_final_name) + r".bed")
     def merge_binary_files():
-        # merge binary files + freqx + missing
-        if not os.path.exists(PurePath(str(merged_final_name) + r".bed")):
-            print("Part 7: Merge binary files, calculate frequency and missing of phenotype and SNPs.")
-            plink_merge = r".\\plink --silent --merge-list .\\" + str(merge_files_txt) + r" --make-bed --freqx --missing --out .\\" + str(merged_final_name)
-            os.system(plink_merge)
-
+        if os.path.exists(merge_files_txt):
+            # merge binary files + freqx + missing
+            if not os.path.exists(merged_final_file):
+                print("Part 7: Merge binary files, calculate frequency and missing of phenotype and SNPs.")
+                plink_merge = r".\\plink --silent --merge-list .\\" + str(merge_files_txt) + r" --make-bed --freqx --missing --out .\\" + str(merged_final_name)
+                os.system(plink_merge)
+        else:
+            raise FileNotFoundError(merge_files_txt)
+        
     # Part 8
     # Prune merged binary file
+    merged_final_QC_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_merged_QC_prune")
+    merged_final_QC_file = PurePath(str(merged_final_QC_name) + r".assoc." + assoc_analysis)
     def prune_binary_files():
-        # QC + prune
-        if args.type == "category":
-            assoc_analysis = "logistic"
+        if os.path.exists(merged_final_file):
+           # QC + prune
+            if not os.path.exists(merged_final_QC_file):
+                print("Part 8: Prune merged binary file.")
+                plink_prune = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --not-chr 0 x y xy --maf 0.05 --hwe 0.000001 --geno 0.05 --mind 0.05 --indep-pairwise 50 5 0.2 --" + assoc_analysis + r" --ci 0.95 --out .\\" + str(merged_final_QC_name)
+                os.system(plink_prune)
         else:
-            assoc_analysis = "linear"
-        merged_final_QC_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_merged_QC_prune")
-        if not os.path.exists(PurePath(str(merged_final_QC_name) + r".assoc." + assoc_analysis)):
-            print("Part 8: Prune merged binary file.")
-            plink_prune = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --not-chr 0 x y xy --maf 0.05 --hwe 0.000001 --geno 0.05 --mind 0.05 --indep-pairwise 50 5 0.2 --" + assoc_analysis + r" --ci 0.95 --out .\\" + str(merged_final_QC_name)
-            os.system(plink_prune)
+            raise FileNotFoundError(merged_final_file)
 
     # Part 9
     # Use R to make plots
     # change rscript path if different version or path to folder
     top_file_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_Top_SNPs.csv")
     def R_plot():
-        if not os.path.exists(top_file_name):
-            print("Part 9: Use R to make plots.")
-            r_bat = [args.rscript, r"--vanilla", args.rfile, r"--dataset=" + patient_data_file_prefix, r"--phenotype=" + phenotype[0], r"--type=" + phenotype[1]]
-            subprocess.call(r_bat, shell=True)
-    
+        if os.path.exists(merged_final_QC_file):
+            if not os.path.exists(top_file_name):
+                print("Part 9: Use R to make plots.")
+                r_bat = [args.rscript, r"--vanilla", args.rfile, r"--dataset=" + patient_data_file_prefix, r"--phenotype=" + phenotype[0], r"--type=" + phenotype[1]]
+                subprocess.call(r_bat, shell=True)
+        else:
+            raise FileNotFoundError(merged_final_QC_file)
+        
     # Part 10
     # Additional functions
     # Select specific snps and extract genotype
     extract_snp_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_extract")
     def extract_snp():
-        if args.snp:
-            extract_snp_list = args.snp
-        else:
-            extract_snp_list = select_top_list(top_file_name)
-        
-        if len(extract_snp_list) != 0:
-            print("Part 10: Extract genotype of specific snps.")
-            plink_extract = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --recodeA include-alt --d ? --snps " + extract_snp_list + r" --out .\\" + str(extract_snp_name)
-            os.system(plink_extract)
+        if os.path.exists(merged_final_file):
+            if args.snp:
+                extract_snp_list = args.snp
+            else:
+                extract_snp_list = select_top_list(top_file_name)
+            
+            if len(extract_snp_list) != 0:
+                print("Part 10: Extract genotype of specific snps.")
+                plink_extract = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --recodeA include-alt --d ? --snps " + extract_snp_list + r" --out .\\" + str(extract_snp_name)
+                os.system(plink_extract)
 
-            print("Part 10: Convert raw file to csv file.")
-            extract_raw_to_csv(PurePath(str(extract_snp_name) + r".raw"), patient_data_id, phenotype[0], PurePath(str(extract_snp_name) + r".csv"))
+                print("Part 10: Convert raw file to csv file.")
+                extract_raw_to_csv(PurePath(str(extract_snp_name) + r".raw"), patient_data_id, phenotype[0], PurePath(str(extract_snp_name) + r".csv"))
+            else:
+                print('Part 10: No designated snp or significant snp found in the top snps file!')
         else:
-            print('Part 10: No designated snp or significant snp found in the top snps file!')
+            raise FileNotFoundError(merged_final_file)
     
     # Main workflow
-    make_dataset_folder()
-    make_id_files()
-    merge_reduce_snp_files()
-
     if args.chr:
         print("Progress selected chr: " + str(args.chr))
     else:
         print("Loop over all chr.")
+    
+    make_dataset_folder()
+    make_id_files()
+    merge_reduce_snp_files()
     chr_split_merge()
     chr_map_ped()
 
