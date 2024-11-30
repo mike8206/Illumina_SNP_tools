@@ -26,6 +26,7 @@ python SNP_matrix_to_reduce.py --matrix_folder Matrix --SNP_folder Reduced
 * --matrix_folder：Illumina的Matrix檔的資料夾位置
 * --SNP_folder：簡化過的parquet檔的資料夾位置
 ## 可選參數：
+* --skip_rows：Matrix檔須跳過的行數 (預設為9行)
 * --chunk_size：影響第2步批次處理SNP的單位量 (預設為100000個)
 # From Reduced SNP files to PLINK Binary files and Making Plots
 ## 目的：
