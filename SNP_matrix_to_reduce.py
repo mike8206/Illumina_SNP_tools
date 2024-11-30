@@ -9,6 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert reduced file to plink")
     parser.add_argument("--matrix_folder", required=True, type=Path, help="Folder that has matrix-type SNP files.")
     parser.add_argument("--SNP_folder", required=True, type=Path, help="Folder that output reduced SNP files.")
+    parser.add_argument("--skip_rows", type=int, default=9, help="How many rows in the matrix file before the IDs (default: 9)")
     parser.add_argument("--chunk_size", type=int, default=100000, help="How many snp will be transformed per chunk (default: 100000)")
     
     args = parser.parse_args()
@@ -25,7 +26,7 @@ def main():
     # Part 2
     def matrix_to_reduce():
         if os.path.exists(matrix_folder):
-            make_reduce_file(matrix_folder, args.chunk_size, reduce_folder)
+            make_reduce_file(matrix_folder, args.skip_rows, args.chunk_size, reduce_folder)
 
     # Main workflow
     make_reduce_folder()

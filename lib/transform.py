@@ -16,7 +16,7 @@ def split_transform_row(row):
     # Map each element in the row using the dictionary, make sure to convert to string if necessary
     return row.apply(lambda x: mapping_dict.get(str(x).split('|')[0]))
 
-def make_reduce_file(matrix_folder: Path, chunk_size: int, reduce_folder: Path):
+def make_reduce_file(matrix_folder: Path, skip_rows: int, chunk_size: int, reduce_folder: Path):
     temp_files = [str(f) for f in Path(matrix_folder).iterdir() if f.match("*.txt")]
     temp_files.sort()
     print("There are " + str(len(temp_files)) + " temp files in the matrix folder.")
@@ -25,7 +25,7 @@ def make_reduce_file(matrix_folder: Path, chunk_size: int, reduce_folder: Path):
         post_filename = str(Path(temp_files[i]).stem) + r".parquet"
         post_map_chunks = []
         chunk_num = 1
-        for chunk in pd.read_csv(temp_files[i], skiprows=9, sep="\t", chunksize=chunk_size):
+        for chunk in pd.read_csv(temp_files[i], skiprows=skip_rows, sep="\t", chunksize=chunk_size):
             print("Working on chunk: " + str(chunk_num) + ". Applying transformer ...")
             chunk.iloc[:, 1:] = chunk.iloc[:, 1:].apply(split_transform_row, axis=1)
             post_map_chunks.append(chunk)
