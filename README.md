@@ -11,7 +11,29 @@ install.packages(c("optparse", "data.table", "qqman"))
 ```
 * Plink 1.9：https://www.cog-genomics.org/plink/
 ## 檔案結構：
-* 同資料夾內須有SNP_reduce_to_plink.py、SNP_manhattan_top.R、plink.exe
+* 同資料夾內須有lib資料夾、SNP_matrix_to_reduce.py、SNP_reduce_to_plink.py、SNP_manhattan_top.R、plink.exe
+# From Illumina Matrix files to Reduced SNP files
+## 目的：
+處理Illumina的matrix檔，擷取出Genotype並縮減檔案大小，產生parquet檔方便保存及後續處理。
+## 範例：
+```
+python SNP_matrix_to_reduce.py --matrix_folder Matrix --SNP_folder Reduced
+```
+## 程式執行步驟：
+1. 製作SNP_folder資料夾
+2. 逐一轉換matrix_folder內文字檔(*.txt)成簡化過的parquet檔
+## 基本參數：
+* --matrix_folder：Illumina的Matrix檔的資料夾位置
+* --SNP_folder：簡化過的parquet檔的資料夾位置
+## 可選參數：
+* --chunk_size：影響第2步批次處理SNP的單位量 (預設為100000個)
+# From Reduced SNP files to PLINK Binary files and Making Plots
+## 目的：
+處理簡化過的parquet檔，並根據輸入的dataset來進行篩選、合併、分析，最終產生一系列可進一步處理及分析的檔案。
+## 範例：
+```
+python SNP_reduce_to_plink.py --SNP_folder Reduced --SNP_map SNP_map_final.csv --patient_file patient.xlsx --id_name ID --phenotype BMI --type continuous
+```
 ## 程式執行步驟：
 1. 製作dataset資料夾
 2. 使用dataset製作篩選ID的檔案、具有表現型(phenotype)的檔案
