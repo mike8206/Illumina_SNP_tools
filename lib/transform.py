@@ -2,6 +2,44 @@ from pathlib import Path
 import pandas as pd
 import gc
 
+def split_transform_row(row):
+    # Mapping dictionary
+    mapping_dict = {
+        '--': 0,
+        'AA': 1, 'AT': 2, 'AC': 3, 'AG': 4,
+        'TA': 5, 'TT': 6, 'TC': 7, 'TG': 8,
+        'CA': 9, 'CT': 10, 'CC': 11, 'CG': 12,
+        'GA': 13, 'GT': 14, 'GC': 15, 'GG': 16,
+        'II': 17, 'ID': 18, 'DI': 19, 'DD': 20,
+        'UU': 21}
+    
+    # Map each element in the row using the dictionary, make sure to convert to string if necessary
+    return row.apply(lambda x: mapping_dict.get(str(x).split('|')[0]))
+
+def make_reduce_file(matrix_folder: Path, chunk_size: int, reduce_folder: Path):
+    temp_files = [str(f) for f in Path(matrix_folder).iterdir() if f.match("*.txt")]
+    temp_files.sort()
+    print("There are " + str(len(temp_files)) + " temp files in the matrix folder.")
+
+    for i in range(len(temp_files)):
+        post_filename = str(Path(temp_files[i]).stem) + r".parquet"
+        post_map_chunks = []
+        chunk_num = 1
+        for chunk in pd.read_csv(temp_files[i], skiprows=9, sep="\t", chunksize=chunk_size):
+            print("Working on chunk: " + str(chunk_num) + ". Applying transformer ...")
+            chunk.iloc[:, 1:] = chunk.iloc[:, 1:].apply(split_transform_row, axis=1)
+            post_map_chunks.append(chunk)
+            chunk_num += 1
+            del chunk
+            gc.collect()
+
+        df = pd.concat(post_map_chunks, axis=0)
+        df.rename(columns={'Unnamed: 0': 'SNPs'}, inplace=True)
+        print("Exporting reduced file: " + str(post_filename))
+        df.to_parquet(str(reduce_folder) + r'/' + post_filename, index=False)
+        del post_map_chunks, df
+        gc.collect()
+
 def make_map_file(patient_snp_map: Path, map_file: Path):
     print("Loading file...")
     map_df = pd.read_csv(patient_snp_map, usecols=['SNP_id', 'chr', 'BP'], dtype={'SNP_id': str, 'chr': str, 'BP': str})
@@ -23,7 +61,7 @@ def make_map_file(patient_snp_map: Path, map_file: Path):
     gc.collect()
 
 # the mapping function
-def transform_row(row):
+def reverse_transform_row(row):
     # Mapping dictionary
     mapping_dict = {
         '0': '0 0',
@@ -49,7 +87,7 @@ def make_ped_file(patient_snp_map: Path, dataseta_ID_file: Path, chunksize: int,
         del chunk
         print("Applying transformer...")
         chunk_T.reset_index(inplace=True)
-        chunk_T['Combined'] = chunk_T.iloc[:, 1:].apply(transform_row, axis=1)
+        chunk_T['Combined'] = chunk_T.iloc[:, 1:].apply(reverse_transform_row, axis=1)
         chunk_T = chunk_T[['index', 'Combined']] # Remain necessary columns
         chunk_T.columns = ['ID', 'Genotype']  # Rename for clarity
         post_T_chunks.append(chunk_T['Genotype'])
