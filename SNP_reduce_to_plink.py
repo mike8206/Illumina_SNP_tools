@@ -6,7 +6,7 @@ import subprocess
 import os
 import shutil
 from lib.filter import snp_map_filter, dataset_ID_filter, pheno_ID_filter
-from lib.select import select_reduce_by_id,  selected_chr_SNP_map, select_top_list
+from lib.select import select_reduce_by_id, selected_chr_SNP_map, select_clump_snp, select_top_list
 from lib.merge import merge_temp_file, merge_selected_SNP_by_range
 from lib.transform import make_map_file, make_ped_file, extract_raw_to_csv
 
@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--keep_temp", type=bool, default=False, help="Keep all temp files (need more disk space).")
     parser.add_argument("--make_bed", type=bool, default=True, help="Use plink to make bed file.")
     parser.add_argument("--prune", type=bool, default=True, help="Use plink to QC and prune bed file.")
+    parser.add_argument("--clump_kb", type=int, default=250, help="The distance of SNP BP for Re-clumping.")
     parser.add_argument("--make_plot", type=bool, default=True, help="Use R to make manhattan plot and qq plot.")
     parser.add_argument("--rscript", type=str, default="C:\\Program Files\\R\\R-4.3.1\\bin\\Rscript", help="Path to R script file.")
     parser.add_argument("--rfile", type=str, default="SNP_manhattan_top.R", help="Path to R plot script file.")
@@ -189,26 +190,40 @@ def main():
             raise FileNotFoundError(merge_files_txt)
         
     # Part 8
-    # Prune merged binary file
+    # Prune merged binary file + clump snps
     merged_final_QC_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_merged_QC_prune")
     merged_final_QC_file = PurePath(str(merged_final_QC_name) + r".assoc." + assoc_analysis)
-    def prune_binary_files():
+    clump_snp_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_clump")
+    clump_snp_file = PurePath(str(clump_snp_name) + r".clumped")
+    final_clump_file = PurePath(str(clump_snp_name) + r".csv")
+    def prune_QC_clump():
         if os.path.exists(merged_final_file):
-           # QC + prune
+            # QC + prune
             if not os.path.exists(merged_final_QC_file):
                 print("Part 8: Prune merged binary file.")
                 plink_prune = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --not-chr 0 x y xy --maf 0.05 --hwe 0.000001 --geno 0.05 --mind 0.05 --indep-pairwise 50 5 0.2 --" + assoc_analysis + r" --ci 0.95 --out .\\" + str(merged_final_QC_name)
                 os.system(plink_prune)
+            # clump
+            if not os.path.exists(clump_snp_file):
+                print("Part 8: Clump snps.")
+                plink_clump = r".\\plink --silent --bfile .\\" + str(merged_final_name) + r" --clump " + str(merged_final_QC_file) + r" --clump-allow-overlap --clump-best --clump-kb 1000 --clump-p1 5e-8 --clump-r2 0.2 --out .\\" + str(clump_snp_name)
+                os.system(plink_clump)
         else:
             raise FileNotFoundError(merged_final_file)
+        
+        if os.path.exists(clump_snp_file):
+            # final-clump
+            if not os.path.exists(final_clump_file):
+                print("Part 8: Re-clump of snps.")
+                select_clump_snp(clump_snp_file, args.clump_kb, final_clump_file)
 
     # Part 9
     # Use R to make plots
     # change rscript path if different version or path to folder
-    top_file_name = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_Top_SNPs.csv")
+    top_snp_file = PurePath(final_folder, patient_data_file_prefix + r"_" + phenotype[0] + r"_Top_SNPs.csv")
     def R_plot():
         if os.path.exists(merged_final_QC_file):
-            if not os.path.exists(top_file_name):
+            if not os.path.exists(top_snp_file):
                 print("Part 9: Use R to make plots.")
                 r_bat = [args.rscript, r"--vanilla", args.rfile, r"--dataset=" + patient_data_file_prefix, r"--phenotype=" + phenotype[0], r"--type=" + phenotype[1]]
                 subprocess.call(r_bat, shell=True)
@@ -224,7 +239,10 @@ def main():
             if args.snp:
                 extract_snp_list = args.snp
             else:
-                extract_snp_list = select_top_list(top_file_name)
+                try:
+                    extract_snp_list = select_top_list(final_clump_file)
+                except:
+                    extract_snp_list = select_top_list(top_snp_file)
             
             if len(extract_snp_list) != 0:
                 print("Part 10: Extract genotype of specific snps.")
@@ -254,7 +272,7 @@ def main():
         make_bed()
         merge_binary_files()
     if args.prune:
-        prune_binary_files()
+        prune_QC_clump()
     if args.make_plot:
         R_plot()
         extract_snp()
