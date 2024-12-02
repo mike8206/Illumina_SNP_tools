@@ -47,8 +47,8 @@ def select_clump_snp(clump_file: Path, final_clump_file: Path):
     clump_snp.sort_values(by=["CHR","BP"], inplace=True, ascending=True)
     clump_snp.reset_index(drop=True, inplace=True)
     final_snp_list = []
-    for i in range(1, clump_snp.shape[0]):
-        if i == 1:
+    for i in range(0, clump_snp.shape[0]):
+        if i == 0:
             final_snp_list.append(clump_snp.loc[i, ])
         else:
             if clump_snp['CHR'][i] != clump_snp['CHR'][i-1]:
