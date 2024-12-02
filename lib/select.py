@@ -42,6 +42,34 @@ def selected_chr_SNP_map(selected_chr: str, snp_map_file: Path, selected_chr_fil
     del SNP_df, selected_chr_df
     gc.collect()
 
+def select_clump_snp(clump_file: Path, final_clump_file: Path):
+    clump_snp = pd.read_table(clump_file, sep = "\s+")
+    clump_snp.sort_values(by=["CHR","BP"], inplace=True, ascending=True)
+    clump_snp.reset_index(drop=True, inplace=True)
+    final_snp_list = []
+    for i in range(1, clump_snp.shape[0]):
+        if i == 1:
+            final_snp_list.append(clump_snp.loc[i, ])
+        else:
+            if clump_snp['CHR'][i] != clump_snp['CHR'][i-1]:
+                final_snp_list.append(clump_snp.loc[i, ])
+            else:
+                # Check if the difference is within the threshold (1000 kb)
+                if clump_snp['BP'][i] - clump_snp['BP'][i-1] > 1000000:
+                    final_snp_list.append(clump_snp.loc[i, ])
+                else:
+                    # Compare the p-values and keep the SNP with the smaller p-value
+                    if clump_snp['P'][i] < clump_snp['P'][i-1]:
+                        if clump_snp['BP'][i] - final_snp_list[-1]['BP'] > 1000000:
+                            final_snp_list.append(clump_snp.loc[i, ])
+                        else:
+                            if clump_snp['P'][i] < final_snp_list[-1]['P']:
+                                final_snp_list[-1] = clump_snp.loc[i, ]
+    final_df = pd.concat(final_snp_list, axis=1).T
+    final_df['P'] = final_df['P'].astype('float')
+    final_df.reset_index(drop=True, inplace=True)
+    final_df.to_csv(final_clump_file, index=False)
+
 def select_top_list(top_list_file: Path):
     top_list_df = pd.read_csv(top_list_file)
     extract_snp_list = top_list_df['SNP'].to_list()

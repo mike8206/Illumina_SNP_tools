@@ -59,7 +59,7 @@ def dataset_ID_filter(patient_file: Path, patient_id: str, outputfilename: Path)
         else: # gender in verb
             print("The gender is string-like, changing to Male = 1, Female = 2.")
             new_patient_df['Gender_upper'] = patient_df[matching_gender_column].astype(str).str.upper()
-            new_patient_df['S'] = new_patient_df['Gender_upper'].apply(lambda x: 2 if x in male_verb_list else (-9 if pd.isna(x) else 1))
+            new_patient_df['S'] = new_patient_df['Gender_upper'].apply(lambda x: 1 if x in male_verb_list else (-9 if pd.isna(x) else 2))
             new_patient_df.drop('Gender_upper', axis=1, inplace=True)
 
     # *Labels: ID S
