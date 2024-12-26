@@ -138,7 +138,7 @@ def extract_raw_to_csv(raw_file: Path, id_name: str, pheno_name:str, output_file
     raw_df.rename(columns={'IID': id_name, 'PHENOTYPE': pheno_name}, inplace=True)
     raw_df = raw_df[raw_df[pheno_name] != -9]
     # Convert columns from the 3rd column to the end (zero-indexed, so 2 means the 3rd column)
-    raw_df.iloc[:, 2:] = raw_df.iloc[:, 2:].astype("Int64")
+    # raw_df.iloc[:, 2:] = raw_df.iloc[:, 2:].astype("Int64")
     raw_df.to_csv(output_file, index=False)
     del raw_df
     gc.collect()
