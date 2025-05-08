@@ -47,7 +47,8 @@ getwd()
 setwd(dataset_folder) ## You will need to change this in your own scripts
 
 # Read in file
-example_basic_logistic_GWAS_results <- read.table(file=filename, header=TRUE, na="NA")
+example_basic_logistic_GWAS_results <- read.table(file=filename, header=TRUE, na.strings = "NA")
+example_basic_logistic_GWAS_results <- na.omit(example_basic_logistic_GWAS_results)
 # glimpse(example_basic_logistic_GWAS_results)
 
 ### Manhattan plot (qqman version)
